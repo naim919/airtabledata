@@ -75,6 +75,16 @@ tr:hover td{background:#faf9f6}
 .al{padding:10px 14px;border-radius:8px;margin-bottom:8px;font-size:12px;line-height:1.4}.al b{display:block;margin-bottom:2px}
 .cc{position:relative;height:280px}
 .cc-lg{position:relative;height:350px}
+
+.exp-hdr{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0eee8;cursor:pointer;user-select:none;transition:background .1s}
+.exp-hdr:hover{background:#faf9f6;border-radius:4px}
+.exp-arrow{font-size:10px;color:var(--muted);transition:transform .2s;width:16px;text-align:center;flex-shrink:0}
+.exp-arrow.open{transform:rotate(90deg)}
+.exp-body{display:none;padding:4px 0 8px 24px;animation:fadeIn .2s}
+.exp-body.open{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.exp-item{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px;border-bottom:1px solid #f8f7f4}
+.exp-item:last-child{border-bottom:none}
 .empty{text-align:center;padding:32px;color:var(--muted);font-size:13px}
 .section-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:28px 0 12px;padding-bottom:6px;border-bottom:2px solid var(--border)}
 </style>
@@ -117,14 +127,15 @@ tr:hover td{background:#faf9f6}
 </div>
 <!-- NEW: Valor stock inmovilizado + ABC Pareto -->
 <div class="section-title">Análisis de valor y concentración</div>
+<div class="cd" style="margin-bottom:18px"><h3><i style="background:var(--danger-l);color:var(--danger)">€</i> Valor del stock inmovilizado</h3><div id="stockVal"></div></div>
 <div class="g2">
-<div class="cd"><h3><i style="background:var(--danger-l);color:var(--danger)">€</i> Valor del stock inmovilizado</h3><div id="stockVal"></div></div>
-<div class="cd"><h3><i style="background:var(--warn-l);color:var(--warn)">◐</i> Análisis ABC (Pareto)</h3><div id="abcAnalysis"></div></div>
+<div class="cd"><h3><i style="background:var(--warn-l);color:var(--warn)">◐</i> ABC — Unidades de venta</h3><div id="abcAnalysis"></div></div>
+<div class="cd"><h3><i style="background:var(--purple-l);color:var(--purple)">◐</i> ABC — Valor de facturación</h3><div id="abcValAnalysis"></div></div>
 </div>
 <!-- NEW: Margen x Volumen scatter + Crecimiento interanual -->
-<div class="g2">
-<div class="cd"><h3><i style="background:var(--purple-l);color:var(--purple)">⬡</i> Margen × volumen (contribución)</h3><div class="cc-lg"><canvas id="chScatter"></canvas></div></div>
-<div class="cd"><h3><i style="background:var(--accent-l);color:var(--accent)">↗</i> Crecimiento 2025 vs 2024</h3><div id="growthAnalysis"></div></div>
+<div class="cd">
+<h3><i style="background:var(--purple-l);color:var(--purple)">⬡</i> Margen × volumen (contribución)</h3>
+<div class="cc-lg"><canvas id="chScatter"></canvas></div>
 </div>
 <!-- NEW: Proveedor + Pipeline + Overstock ratio -->
 <div class="section-title">Proveedores, pipeline y salud del stock</div>
@@ -177,7 +188,7 @@ function sp(p,b){P=p;document.querySelectorAll('.tab').forEach(t=>t.classList.re
 function N(v){return v.toLocaleString('es-ES')}
 function EUR(v){return v>=1e6?(v/1e6).toFixed(1)+'M€':v>=1000?Math.round(v/1000)+'k€':Math.round(v)+'€'}
 
-function render(){const f=gF();document.getElementById('fc').textContent=f.length+' / '+D.length+' productos';rKPI(f);rTbl(f);rCh1(f);rCh2(f);rStockVal(f);rABC(f);rScatter(f);rGrowth(f);rProv(f);rPipeline(f);rOverCat(f);rRnd(f);rStk(f);rAl(f)}
+function render(){const f=gF();document.getElementById('fc').textContent=f.length+' / '+D.length+' productos';rKPI(f);rTbl(f);rCh1(f);rCh2(f);rStockVal(f);rABC(f);rABCVal(f);rScatter(f);rProv(f);rPipeline(f);rOverCat(f);rRnd(f);rStk(f);rAl(f)}
 
 function rKPI(f){
   const tm=f.reduce((s,p)=>s+p.um,0),t3=f.reduce((s,p)=>s+p.u3,0),t6=f.reduce((s,p)=>s+p.u6,0);
@@ -235,27 +246,64 @@ function rStockVal(f){
   h+='</div>';document.getElementById('stockVal').innerHTML=h;
 }
 
-// 3. ABC PARETO
+// 3. ABC PARETO - EXPANDABLE
 function rABC(f){
-  const active=f.filter(p=>p.u3>0).map(p=>({n:p.n,v:p.u3,c:p.c})).sort((a,b)=>b.v-a.v);
+  const active=f.filter(p=>p.u3>0).map(p=>({n:p.n,v:p.u3,c:p.c,sc:p.sc,stk:p.stk,prc:p.prc})).sort((a,b)=>b.v-a.v);
   const total=active.reduce((s,p)=>s+p.v,0);
-  let cumul=0;let a=0,b=0,cCnt=0;
-  active.forEach(p=>{cumul+=p.v;const pct=cumul/total;if(pct<=0.8)a++;else if(pct<=0.95)b++;else cCnt++});
+  let cumul=0;const classes=[];
+  active.forEach(p=>{cumul+=p.v;const pct=cumul/total;if(pct<=0.8)classes.push('A');else if(pct<=0.95)classes.push('B');else classes.push('C')});
+  const a=classes.filter(x=>x==='A').length,b=classes.filter(x=>x==='B').length,cCnt=classes.filter(x=>x==='C').length;
   const aPct=total>0?(active.slice(0,a).reduce((s,p)=>s+p.v,0)/total*100):0;
   const bPct=total>0?(active.slice(a,a+b).reduce((s,p)=>s+p.v,0)/total*100):0;
-  const cPct=100-aPct-bPct;
+  const cPct=Math.max(0,100-aPct-bPct);
   let h=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
-    <div style="background:var(--accent-l);border-radius:7px;padding:10px 12px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--accent);font-family:var(--mono)">${a}</div><div style="font-size:10px;color:var(--accent);font-weight:600">CLASE A (80% ventas)</div><div style="font-size:10px;color:var(--muted)">${active.length>0?Math.round(a/active.length*100):0}% de productos</div></div>
-    <div style="background:var(--warn-l);border-radius:7px;padding:10px 12px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--warn);font-family:var(--mono)">${b}</div><div style="font-size:10px;color:var(--warn);font-weight:600">CLASE B (15% ventas)</div><div style="font-size:10px;color:var(--muted)">${active.length>0?Math.round(b/active.length*100):0}% de productos</div></div>
-    <div style="background:#f0efec;border-radius:7px;padding:10px 12px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--muted);font-family:var(--mono)">${cCnt}</div><div style="font-size:10px;color:var(--muted);font-weight:600">CLASE C (5% ventas)</div><div style="font-size:10px;color:var(--muted)">${active.length>0?Math.round(cCnt/active.length*100):0}% de productos</div></div>
+    <div style="background:var(--accent-l);border-radius:7px;padding:10px 12px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--accent);font-family:var(--mono)">${a}</div><div style="font-size:10px;color:var(--accent);font-weight:600">CLASE A (80%)</div><div style="font-size:10px;color:var(--muted)">${active.length>0?Math.round(a/active.length*100):0}% prods</div></div>
+    <div style="background:var(--warn-l);border-radius:7px;padding:10px 12px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--warn);font-family:var(--mono)">${b}</div><div style="font-size:10px;color:var(--warn);font-weight:600">CLASE B (15%)</div><div style="font-size:10px;color:var(--muted)">${active.length>0?Math.round(b/active.length*100):0}% prods</div></div>
+    <div style="background:#f0efec;border-radius:7px;padding:10px 12px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--muted);font-family:var(--mono)">${cCnt}</div><div style="font-size:10px;color:var(--muted);font-weight:600">CLASE C (5%)</div><div style="font-size:10px;color:var(--muted)">${active.length>0?Math.round(cCnt/active.length*100):0}% prods</div></div>
   </div>`;
-  h+=`<div style="margin-bottom:8px"><div class="shb" style="height:10px"><div style="flex:${aPct};background:var(--accent)" title="A: ${aPct.toFixed(0)}%"></div><div style="flex:${bPct};background:var(--warn)" title="B: ${bPct.toFixed(0)}%"></div><div style="flex:${cPct};background:#ccc" title="C: ${cPct.toFixed(0)}%"></div></div><div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:4px"><span>${aPct.toFixed(0)}% ventas</span><span>${bPct.toFixed(0)}%</span><span>${cPct.toFixed(0)}%</span></div></div>`;
-  h+='<div style="font-size:11px;color:var(--muted);margin-top:8px"><b>Top 5 clase A:</b></div><div style="max-height:100px;overflow-y:auto">';
-  active.slice(0,5).forEach((p,i)=>{h+=`<div style="font-size:12px;padding:3px 0;display:flex;gap:8px"><span style="color:var(--accent);font-weight:700">${i+1}.</span><span style="flex:1">${p.n}</span><span style="font-family:var(--mono);font-size:11px">${N(p.v)} uds</span></div>`});
-  h+='</div>';
-  const sinVentas=f.filter(p=>p.u3<=0&&!['Novedad','Descatalogado','Próximo lanzamiento'].includes(p.e)).length;
-  if(sinVentas)h+=`<div style="font-size:11px;color:var(--danger);margin-top:8px;font-weight:600">+ ${sinVentas} productos sin ventas en 3M</div>`;
+  h+=`<div style="margin-bottom:12px"><div class="shb" style="height:10px"><div style="flex:${aPct};background:var(--accent)"></div><div style="flex:${bPct};background:var(--warn)"></div><div style="flex:${cPct};background:#ccc"></div></div></div>`;
+  const groups=[{label:'Clase A',items:active.slice(0,a),color:'var(--accent)',bg:'var(--accent-l)'},{label:'Clase B',items:active.slice(a,a+b),color:'var(--warn)',bg:'var(--warn-l)'},{label:'Clase C',items:active.slice(a+b),color:'var(--muted)',bg:'#f0efec'}];
+  groups.forEach((g,gi)=>{
+    const id='abc_'+gi;
+    h+=`<div class="exp-hdr" onclick="toggleExp('${id}')"><span class="exp-arrow" id="arr_${id}">▶</span><div style="flex:1;font-weight:600;font-size:12px;color:${g.color}">${g.label}</div><div style="font-family:var(--mono);font-size:11px;color:var(--muted)">${g.items.length} prods — ${N(g.items.reduce((s,p)=>s+p.v,0))} uds</div></div>`;
+    h+=`<div class="exp-body" id="exp_${id}">`;
+    g.items.forEach((p,i)=>{h+=`<div class="exp-item"><span style="width:24px;color:${g.color};font-weight:700;font-family:var(--mono)">${i+1}</span><span style="flex:1;font-weight:500">${p.n}</span><span style="color:var(--muted);width:80px;overflow:hidden;text-overflow:ellipsis">${p.sc}</span><span style="font-family:var(--mono);width:50px;text-align:right">${N(p.v)}</span></div>`});
+    h+='</div>';
+  });
+  const sinV=f.filter(p=>p.u3<=0&&!['Novedad','Descatalogado','Próximo lanzamiento'].includes(p.e)).length;
+  if(sinV)h+=`<div style="font-size:11px;color:var(--danger);margin-top:8px;font-weight:600">+ ${sinV} sin ventas 3M</div>`;
   document.getElementById('abcAnalysis').innerHTML=h;
+}
+
+
+// 3b. ABC PARETO - POR VALOR FACTURACIÓN (uds × precio inventario)
+function rABCVal(f){
+  const active=f.filter(p=>p.u3>0&&p.prc>0).map(p=>({n:p.n,v:Math.round(p.u3*p.prc),u:p.u3,prc:p.prc,c:p.c,sc:p.sc,stk:p.stk})).sort((a,b)=>b.v-a.v);
+  const total=active.reduce((s,p)=>s+p.v,0);
+  let cumul=0;const classes=[];
+  active.forEach(p=>{cumul+=p.v;const pct=cumul/total;if(pct<=0.8)classes.push('A');else if(pct<=0.95)classes.push('B');else classes.push('C')});
+  const a=classes.filter(x=>x==='A').length,b=classes.filter(x=>x==='B').length,cCnt=classes.filter(x=>x==='C').length;
+  const aVal=active.slice(0,a).reduce((s,p)=>s+p.v,0);
+  const bVal=active.slice(a,a+b).reduce((s,p)=>s+p.v,0);
+  const aPct=total>0?(aVal/total*100):0;
+  const bPct=total>0?(bVal/total*100):0;
+  const cPct=Math.max(0,100-aPct-bPct);
+  let h=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+    <div style="background:var(--accent-l);border-radius:7px;padding:10px 12px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--accent);font-family:var(--mono)">${a}</div><div style="font-size:10px;color:var(--accent);font-weight:600">CLASE A (80%)</div><div style="font-size:10px;color:var(--muted)">${EUR(aVal)}</div></div>
+    <div style="background:var(--warn-l);border-radius:7px;padding:10px 12px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--warn);font-family:var(--mono)">${b}</div><div style="font-size:10px;color:var(--warn);font-weight:600">CLASE B (15%)</div><div style="font-size:10px;color:var(--muted)">${EUR(bVal)}</div></div>
+    <div style="background:#f0efec;border-radius:7px;padding:10px 12px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--muted);font-family:var(--mono)">${cCnt}</div><div style="font-size:10px;color:var(--muted);font-weight:600">CLASE C (5%)</div><div style="font-size:10px;color:var(--muted)">${EUR(total-aVal-bVal)}</div></div>
+  </div>`;
+  h+=`<div style="margin-bottom:4px;font-size:11px;color:var(--muted);text-align:right">Total facturación 3M: <b>${EUR(total)}</b></div>`;
+  h+=`<div style="margin-bottom:12px"><div class="shb" style="height:10px"><div style="flex:${aPct};background:var(--accent)"></div><div style="flex:${bPct};background:var(--warn)"></div><div style="flex:${cPct};background:#ccc"></div></div></div>`;
+  const groups=[{label:'Clase A',items:active.slice(0,a),color:'var(--accent)'},{label:'Clase B',items:active.slice(a,a+b),color:'var(--warn)'},{label:'Clase C',items:active.slice(a+b),color:'var(--muted)'}];
+  groups.forEach((g,gi)=>{
+    const id='abcv_'+gi;
+    h+=`<div class="exp-hdr" onclick="toggleExp('${id}')"><span class="exp-arrow" id="arr_${id}">▶</span><div style="flex:1;font-weight:600;font-size:12px;color:${g.color}">${g.label}</div><div style="font-family:var(--mono);font-size:11px;color:var(--muted)">${g.items.length} prods — ${EUR(g.items.reduce((s,p)=>s+p.v,0))}</div></div>`;
+    h+=`<div class="exp-body" id="exp_${id}">`;
+    g.items.forEach((p,i)=>{h+=`<div class="exp-item"><span style="width:24px;color:${g.color};font-weight:700;font-family:var(--mono)">${i+1}</span><span style="flex:1;font-weight:500">${p.n}</span><span style="font-family:var(--mono);width:55px;text-align:right">${EUR(p.v)}</span><span style="font-family:var(--mono);width:40px;text-align:right;color:var(--muted)">${N(p.u)} u</span></div>`});
+    h+='</div>';
+  });
+  document.getElementById('abcValAnalysis').innerHTML=h;
 }
 
 // 2. SCATTER MARGEN × VOLUMEN
@@ -285,26 +333,7 @@ function rScatter(f){
   info.innerHTML=`<span>Prom margen: <b>${avgY.toFixed(1)}%</b></span><span>Prom volumen: <b>${Math.round(avgX)} uds</b></span><span style="color:var(--accent)">★ ${highM.length} vacas lecheras (alto vol+margen)</span><span style="color:var(--danger)">${trap.length} trampas volumen (alto vol, bajo margen)</span>`;
 }
 
-// 4. CRECIMIENTO 2025 vs 2024
-function rGrowth(f){
-  const cats={};f.forEach(p=>{if(p.u24>0||p.u25>0){const c=p.c||'?';if(!cats[c])cats[c]={v24:0,v25:0};cats[c].v24+=p.u24;cats[c].v25+=p.u25}});
-  const s=Object.entries(cats).filter(x=>x[1].v24>10).sort((a,b)=>{const ra=a[1].v24>0?(a[1].v25/a[1].v24-1):0;const rb=b[1].v24>0?(b[1].v25/b[1].v24-1):0;return rb-ra});
-  let h='<div style="max-height:340px;overflow-y:auto">';
-  s.forEach(([c,d])=>{
-    const growth=d.v24>0?((d.v25/d.v24-1)*100):0;
-    const col=growth>20?'var(--accent)':growth>0?'var(--blue)':growth>-20?'var(--warn)':'var(--danger)';
-    const icon=growth>0?'▲':'▼';
-    h+=`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f0eee8;font-size:12px">
-      <div style="flex:1;font-weight:500">${c}</div>
-      <div style="font-family:var(--mono);font-size:11px;color:var(--muted);width:55px;text-align:right">${N(d.v24)}</div>
-      <div style="color:var(--muted);font-size:10px">→</div>
-      <div style="font-family:var(--mono);font-size:11px;width:55px;text-align:right;font-weight:600">${N(d.v25)}</div>
-      <div style="font-family:var(--mono);font-size:11px;width:65px;text-align:right;font-weight:700;color:${col}">${icon} ${Math.abs(growth).toFixed(0)}%</div>
-    </div>`});
-  h+='</div>';
-  if(!s.length)h='<div class="empty">Sin datos comparativos</div>';
-  document.getElementById('growthAnalysis').innerHTML=h;
-}
+
 
 // 5. PROVEEDORES
 function rProv(f){
@@ -360,29 +389,63 @@ function rPipeline(f){
   document.getElementById('pipeline').innerHTML=h||'<div class="empty">Sin datos</div>';
 }
 
-// 10. OVERSTOCK POR CATEGORÍA
+// 10. OVERSTOCK POR CATEGORÍA - EXPANDABLE
 function rOverCat(f){
-  const cats={};f.forEach(p=>{const c=p.c||'?';if(!cats[c])cats[c]={total:0,over:0,overVal:0};cats[c].total++;if(p.es==='Overstock'){cats[c].over++;cats[c].overVal+=p.prc*p.stk}});
+  const cats={};f.forEach(p=>{const c=p.c||'?';if(!cats[c])cats[c]={total:0,over:0,overVal:0,prods:[]};cats[c].total++;if(p.es==='Overstock'){cats[c].over++;cats[c].overVal+=p.prc*p.stk;cats[c].prods.push(p)}});
   const s=Object.entries(cats).filter(x=>x[1].over>0).sort((a,b)=>b[1].overVal-a[1].overVal);
-  let h='<div style="max-height:300px;overflow-y:auto">';
-  s.forEach(([c,d])=>{
+  let h='<div style="max-height:400px;overflow-y:auto">';
+  s.forEach(([c,d],i)=>{
     const pct=d.total>0?(d.over/d.total*100):0;
-    h+=`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f0eee8;font-size:12px">
-      <div style="flex:1;font-weight:500">${c}</div>
-      <div style="width:60px;height:5px;background:#f0efec;border-radius:3px"><div style="height:100%;width:${pct}%;background:var(--danger);border-radius:3px"></div></div>
-      <div style="font-family:var(--mono);font-size:10px;width:60px;text-align:right;color:var(--danger);font-weight:600">${d.over}/${d.total}</div>
+    const id='ov_'+i;
+    h+=`<div class="exp-hdr" onclick="toggleExp('${id}')"><span class="exp-arrow" id="arr_${id}">▶</span>
+      <div style="flex:1;font-weight:500;font-size:12px">${c}</div>
+      <div style="width:50px;height:5px;background:#f0efec;border-radius:3px"><div style="height:100%;width:${pct}%;background:var(--danger);border-radius:3px"></div></div>
+      <div style="font-family:var(--mono);font-size:10px;width:50px;text-align:right;color:var(--danger);font-weight:600">${d.over}/${d.total}</div>
       <div style="font-family:var(--mono);font-size:10px;width:55px;text-align:right;color:var(--muted)">${EUR(d.overVal)}</div>
-    </div>`});
+    </div>`;
+    h+=`<div class="exp-body" id="exp_${id}">`;
+    d.prods.sort((a,b)=>(b.prc*b.stk)-(a.prc*a.stk)).forEach(p=>{
+      h+=`<div class="exp-item"><span style="flex:1;font-weight:500">${p.n}</span><span style="font-family:var(--mono);width:45px;text-align:right">${N(p.stk)} u</span><span style="font-family:var(--mono);width:55px;text-align:right;color:var(--danger)">${EUR(p.prc*p.stk)}</span><span style="font-family:var(--mono);width:40px;text-align:right;color:var(--muted)">${p.p3.toFixed(1)}/m</span></div>`;
+    });
+    h+='</div>';
+  });
   h+='</div>';
-  const totalOverVal=s.reduce((a,x)=>a+x[1].overVal,0);
-  if(totalOverVal>0)h+=`<div style="font-size:11px;color:var(--danger);margin-top:8px;font-weight:600">Total valor overstock: ${EUR(totalOverVal)}</div>`;
+  const totalOV=s.reduce((a,x)=>a+x[1].overVal,0);
+  if(totalOV>0)h+=`<div style="font-size:11px;color:var(--danger);margin-top:8px;font-weight:600">Total overstock: ${EUR(totalOV)}</div>`;
   document.getElementById('overstockCat').innerHTML=h||'<div class="empty">Sin overstock</div>';
 }
 
 // EXISTING: rendimiento, stock, alertas
-function rRnd(f){const r={};f.forEach(p=>{const k=p.rnd||'Sin dato';r[k]=(r[k]||0)+1});const s=Object.entries(r).sort((a,b)=>b[1]-a[1]);const tot=f.length;const cols={'Top Ventas':'#166534','Rotación Alta':'#1a6b42','Rotación Media':'#b45309','Rotación Baja':'#b91c1c',Liquidación:'#9d174d',Agotado:'#807d75','Pendiente de activación':'#1d4ed8','Producto activado':'#6d28d9','Fuera de temporada':'#c2410c','Sin dato':'#ccc'};let h='<div class="shb" style="margin-bottom:14px">';s.forEach(([k,v])=>{h+=`<div style="flex:${v};background:${cols[k]||'#aaa'}"></div>`});h+='</div>';s.forEach(([k,v])=>{const pct=tot?Math.round(v/tot*100):0;h+=`<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f0eee8;font-size:12px"><div style="width:10px;height:10px;border-radius:3px;background:${cols[k]||'#aaa'};flex-shrink:0"></div><div style="flex:1;font-weight:500">${k}</div><div style="color:var(--muted);font-family:var(--mono);font-size:11px">${v} (${pct}%)</div></div>`});document.getElementById('rndS').innerHTML=h}
+function rRnd(f){
+  const r={};const rProds={};
+  f.forEach(p=>{const k=p.rnd||'Sin dato';r[k]=(r[k]||0)+1;if(!rProds[k])rProds[k]=[];rProds[k].push(p)});
+  const s=Object.entries(r).sort((a,b)=>b[1]-a[1]);const tot=f.length;
+  const cols={'Top Ventas':'#166534','Rotación Alta':'#1a6b42','Rotación Media':'#b45309','Rotación Baja':'#b91c1c',Liquidación:'#9d174d',Agotado:'#807d75','Pendiente de activación':'#1d4ed8','Producto activado':'#6d28d9','Fuera de temporada':'#c2410c','Sin dato':'#ccc'};
+  let h='<div class="shb" style="margin-bottom:14px">';s.forEach(([k,v])=>{h+=`<div style="flex:${v};background:${cols[k]||'#aaa'}"></div>`});h+='</div>';
+  h+='<div style="max-height:400px;overflow-y:auto">';
+  s.forEach(([k,v],i)=>{
+    const pct=tot?Math.round(v/tot*100):0;const id='rnd_'+i;
+    const prods=(rProds[k]||[]).sort((a,b)=>b.u3-a.u3);
+    h+=`<div class="exp-hdr" onclick="toggleExp('${id}')"><span class="exp-arrow" id="arr_${id}">▶</span><div style="width:10px;height:10px;border-radius:3px;background:${cols[k]||'#aaa'};flex-shrink:0"></div><div style="flex:1;font-weight:500;font-size:12px">${k}</div><div style="color:var(--muted);font-family:var(--mono);font-size:11px">${v} (${pct}%)</div></div>`;
+    h+=`<div class="exp-body" id="exp_${id}">`;
+    prods.forEach(p=>{
+      h+=`<div class="exp-item"><span style="flex:1;font-weight:500">${p.n}</span><span style="color:var(--muted);width:80px;overflow:hidden;text-overflow:ellipsis;font-size:10px">${p.c}</span><span style="font-family:var(--mono);width:45px;text-align:right">${N(p.u3)}</span><span style="font-family:var(--mono);width:40px;text-align:right;color:var(--muted)">${N(p.stk)} stk</span></div>`;
+    });
+    h+='</div>';
+  });
+  h+='</div>';
+  document.getElementById('rndS').innerHTML=h;
+}
 function rStk(f){const ts=f.reduce((s,p)=>s+p.stk,0),tt=f.reduce((s,p)=>s+p.trn,0),tso=f.reduce((s,p)=>s+p.sol,0),tb=f.reduce((s,p)=>s+p.bkg,0),tbr=f.reduce((s,p)=>s+p.brr,0);const ov=f.filter(p=>p.es==='Overstock'),ok=f.filter(p=>p.es==='Stock ok');const cr=f.filter(p=>p.alc>0&&p.alc<2&&p.p3>5),bj=f.filter(p=>p.alc>=2&&p.alc<4&&p.p3>5);let h=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px"><div style="background:var(--bg);border-radius:7px;padding:10px 12px"><div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase">Disponible</div><div style="font-size:20px;font-weight:700;font-family:var(--mono)">${N(ts)}</div></div><div style="background:var(--bg);border-radius:7px;padding:10px 12px"><div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase">En tránsito</div><div style="font-size:20px;font-weight:700;font-family:var(--mono)">${N(tt)}</div></div></div>`;h+=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px"><div style="background:var(--bg);border-radius:7px;padding:8px 10px"><div style="font-size:10px;color:var(--muted);font-weight:600">Solicitado</div><div style="font-size:16px;font-weight:700;font-family:var(--mono)">${N(tso)}</div></div><div style="background:var(--bg);border-radius:7px;padding:8px 10px"><div style="font-size:10px;color:var(--muted);font-weight:600">Booking</div><div style="font-size:16px;font-weight:700;font-family:var(--mono)">${N(tb)}</div></div><div style="background:var(--bg);border-radius:7px;padding:8px 10px"><div style="font-size:10px;color:var(--muted);font-weight:600">Borrador</div><div style="font-size:16px;font-weight:700;font-family:var(--mono)">${N(tbr)}</div></div></div>`;h+=`<div class="shb" style="margin-bottom:10px"><div style="flex:${ok.length};background:var(--accent)"></div><div style="flex:${ov.length};background:var(--danger)"></div></div><div style="display:flex;gap:16px;font-size:12px;margin-bottom:10px"><span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:var(--accent)"></span>OK: ${ok.length}</span><span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:var(--danger)"></span>Over: ${ov.length}</span></div>`;if(cr.length)h+=`<div style="font-size:11px;color:var(--danger);font-weight:600">⚠ ${cr.length} alcance crítico</div>`;if(bj.length)h+=`<div style="font-size:11px;color:var(--warn);font-weight:600">⚡ ${bj.length} alcance bajo</div>`;document.getElementById('stkS').innerHTML=h}
 function rAl(f){const sinV=f.filter(p=>p.u6<=0&&!['Novedad','Descatalogado','Próximo lanzamiento'].includes(p.e));const at=f.filter(p=>p.e==='Atascado');const cy=f.filter(p=>p.p6>=10&&p.p3/p.p6<0.3);const neg=f.filter(p=>p.um<0||p.u3<0);const ovB=f.filter(p=>p.es==='Overstock'&&p.p3<2&&p.stk>50);const ac=f.filter(p=>p.alc>0&&p.alc<2&&p.p3>10);let h='';if(ac.length)h+=`<div class="al" style="background:var(--danger-l)"><b style="color:var(--danger)">🔴 ${ac.length} cobertura crítica</b><span style="color:var(--muted)">${ac.slice(0,3).map(p=>p.n).join(', ')}${ac.length>3?'…':''}</span></div>`;if(ovB.length)h+=`<div class="al" style="background:var(--purple-l)"><b style="color:var(--purple)">🟣 ${ovB.length} overstock baja rotación</b><span style="color:var(--muted)">${ovB.slice(0,3).map(p=>p.n+' ('+p.stk+')').join(', ')}${ovB.length>3?'…':''}</span></div>`;if(at.length)h+=`<div class="al" style="background:var(--warn-l)"><b style="color:var(--warn)">🟡 ${at.length} atascados</b><span style="color:var(--muted)">${at.slice(0,3).map(p=>p.n).join(', ')}${at.length>3?'…':''}</span></div>`;if(cy.length)h+=`<div class="al" style="background:var(--accent2-l)"><b style="color:var(--accent2)">🟠 ${cy.length} en caída</b><span style="color:var(--muted)">${cy.slice(0,3).map(p=>p.n).join(', ')}${cy.length>3?'…':''}</span></div>`;if(sinV.length)h+=`<div class="al" style="background:#f0efec"><b style="color:var(--muted)">⚪ ${sinV.length} sin ventas 6M</b></div>`;if(neg.length)h+=`<div class="al" style="background:var(--blue-l)"><b style="color:var(--blue)">🔵 ${neg.length} devoluciones netas</b></div>`;if(!h)h='<div class="empty">Sin alertas ✓</div>';document.getElementById('alrt').innerHTML=h}
+
+function toggleExp(id){
+  const body=document.getElementById('exp_'+id);
+  const arrow=document.getElementById('arr_'+id);
+  const isOpen=body.classList.contains('open');
+  body.classList.toggle('open',!isOpen);
+  arrow.classList.toggle('open',!isOpen);
+}
 
 init();
 </script></body></html>
