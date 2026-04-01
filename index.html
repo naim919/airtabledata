@@ -96,7 +96,7 @@ tr:hover td{background:#faf9f6}
 <body>
 <header>
 <h1>EVVO Sales & Stock <span>Dashboard v3</span></h1>
-<div class="hm"><span id="fc"></span><span>Datos: <b>01/04/2026 16:02</b></span></div>
+<div class="hm"><span id="fc"></span><span>Datos: <b>01/04/2026 20:53</b></span></div>
 </header>
 <div class="wrap">
 <div class="kpis" id="kpis"></div>
@@ -215,17 +215,22 @@ function rKPI(f){
     <div class="kpi k8"><div class="kl">% muerto</div><div class="kv">${sv>0?Math.round(dead/sv*100):0}%</div><div class="ks">del valor total</div></div>`;
 }
 // TABLE
+function pctCol(v){if(v===null)return 'var(--muted)';return v>10?'var(--accent)':v>0?'#0891b2':v>-10?'var(--warn)':'var(--danger)'}
+function pctFmt(v){if(v===null)return '—';const sign=v>0?'+':'';return sign+v.toFixed(0)+'%'}
 function rTbl(f){
   let s=[...f];if(sortCol){s.sort((a,b)=>{let va=a[sortCol],vb=b[sortCol];if(typeof va==='string')return sortDir==='asc'?va.localeCompare(vb):vb.localeCompare(va);return sortDir==='asc'?va-vb:vb-va})}else{s.sort((a,b)=>b[P]-a[P])}
   const top=s.slice(0,80);if(!top.length){document.getElementById('tT').innerHTML='<div class="empty">No hay productos</div>';return}
-  const cols=[{k:'#',f:null},{k:'Producto',f:'n'},{k:'Subcat.',f:'sc'},{k:'Estado',f:'e'},{k:'Rend.',f:'rnd'},{k:'Mes',f:'um',r:1},{k:'3M',f:'u3',r:1},{k:'P.3M',f:'p3',r:1},{k:'6M',f:'u6',r:1},{k:'Stock',f:'stk',r:1},{k:'Val.Stk€',f:null,r:1},{k:'Alc.',f:'alc',r:1},{k:'Mrg%',f:'mrg',r:1},{k:'Prov.',f:'prov'},{k:'Tend.',f:null}];
+  const cols=[{k:'#',f:null},{k:'Producto',f:'n'},{k:'Subcat.',f:'sc'},{k:'Estado',f:'e'},{k:'Rend.',f:'rnd'},{k:'Mes',f:'um',r:1},{k:'3M',f:'u3',r:1},{k:'P.3M',f:'p3',r:1},{k:'6M',f:'u6',r:1},{k:'P.6M',f:'p6',r:1},{k:'Δ M/3M',f:null,r:1},{k:'Δ 3M/6M',f:null,r:1},{k:'Δ M/6M',f:null,r:1},{k:'Stock',f:'stk',r:1},{k:'Val.Stk€',f:null,r:1},{k:'Alc.',f:'alc',r:1},{k:'Mrg%',f:'mrg',r:1},{k:'Prov.',f:'prov'},{k:'Tend.',f:null}];
   let h='<table><thead><tr>';cols.forEach(c=>{const cl=c.r?'class="r"':'';const ar=sortCol===c.f?(sortDir==='asc'?' ↑':' ↓'):'';const oc=c.f?` onclick="doSort('${c.f}')"`:'';h+=`<th ${cl}${oc}>${c.k}${ar}</th>`});h+='</tr></thead><tbody>';
   top.forEach((p,i)=>{
     const rc=i<1?'r1':i<2?'r2':i<3?'r3':'rn';const rt=p.p6>0?(p.p3/p.p6):0;const tc=rt>1.3?'tu':rt<0.7?'td':'tf';const ti=rt>1.3?'▲':rt<0.7?'▼':'—';
+    const dM3=p.p3>0?((p.um-p.p3)/p.p3*100):null;
+    const d36=p.p6>0?((p.p3-p.p6)/p.p6*100):null;
+    const dM6=p.p6>0?((p.um-p.p6)/p.p6*100):null;
     const tgc=TC[p.e]||'';const rndc=RC[p.rnd]||'';const ac=p.alc<2&&p.alc>0?'color:var(--danger);font-weight:700':p.alc<4&&p.alc>0?'color:var(--warn);font-weight:600':'';
     const sv=p.prc*p.stk;const mrgPct=p.mrg?(p.mrg*100).toFixed(0)+'%':'—';
     const mrgCol=p.mrg>0.35?'color:var(--accent)':p.mrg>0.2?'color:var(--warn)':p.mrg>0?'color:var(--danger)':'';
-    h+=`<tr><td><span class="rk ${rc}">${i+1}</span></td><td class="pname">${p.n}<span class="ptt">${p.n}</span></td><td style="font-size:11px;color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis">${p.sc}</td><td><span class="tg ${tgc}">${p.e}</span></td><td><span class="tg-rnd ${rndc}">${p.rnd||'—'}</span></td><td class="r" style="font-weight:${P==='um'?700:400};font-family:var(--mono);font-size:11px">${N(p.um)}</td><td class="r" style="font-weight:${P==='u3'?700:400};font-family:var(--mono);font-size:11px">${N(p.u3)}</td><td class="r" style="color:var(--muted);font-family:var(--mono);font-size:11px">${p.p3.toFixed(1)}</td><td class="r" style="font-weight:${P==='u6'?700:400};font-family:var(--mono);font-size:11px">${N(p.u6)}</td><td class="r" style="font-family:var(--mono);font-size:11px;font-weight:600">${N(p.stk)}</td><td class="r" style="font-family:var(--mono);font-size:11px;color:var(--muted)">${sv>0?EUR(sv):'—'}</td><td class="r" style="font-family:var(--mono);font-size:11px;${ac}">${p.alc>0?p.alc.toFixed(1):'—'}</td><td class="r" style="font-family:var(--mono);font-size:11px;${mrgCol}">${mrgPct}</td><td style="font-size:11px;color:var(--muted);max-width:80px;overflow:hidden;text-overflow:ellipsis">${p.prov||'—'}</td><td class="${tc}">${ti} ${rt>0?rt.toFixed(1)+'x':''}</td></tr>`;
+    h+=`<tr><td><span class="rk ${rc}">${i+1}</span></td><td class="pname">${p.n}<span class="ptt">${p.n}</span></td><td style="font-size:11px;color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis">${p.sc}</td><td><span class="tg ${tgc}">${p.e}</span></td><td><span class="tg-rnd ${rndc}">${p.rnd||'—'}</span></td><td class="r" style="font-weight:${P==='um'?700:400};font-family:var(--mono);font-size:11px">${N(p.um)}</td><td class="r" style="font-weight:${P==='u3'?700:400};font-family:var(--mono);font-size:11px">${N(p.u3)}</td><td class="r" style="color:var(--muted);font-family:var(--mono);font-size:11px">${p.p3.toFixed(1)}</td><td class="r" style="font-weight:${P==='u6'?700:400};font-family:var(--mono);font-size:11px">${N(p.u6)}</td><td class="r" style="color:var(--muted);font-family:var(--mono);font-size:11px">${p.p6.toFixed(1)}</td><td class="r" style="font-family:var(--mono);font-size:11px;font-weight:600;color:${pctCol(dM3)}">${pctFmt(dM3)}</td><td class="r" style="font-family:var(--mono);font-size:11px;font-weight:600;color:${pctCol(d36)}">${pctFmt(d36)}</td><td class="r" style="font-family:var(--mono);font-size:11px;font-weight:600;color:${pctCol(dM6)}">${pctFmt(dM6)}</td><td class="r" style="font-family:var(--mono);font-size:11px;font-weight:600">${N(p.stk)}</td><td class="r" style="font-family:var(--mono);font-size:11px;color:var(--muted)">${sv>0?EUR(sv):'—'}</td><td class="r" style="font-family:var(--mono);font-size:11px;${ac}">${p.alc>0?p.alc.toFixed(1):'—'}</td><td class="r" style="font-family:var(--mono);font-size:11px;${mrgCol}">${mrgPct}</td><td style="font-size:11px;color:var(--muted);max-width:80px;overflow:hidden;text-overflow:ellipsis">${p.prov||'—'}</td><td class="${tc}">${ti} ${rt>0?rt.toFixed(1)+'x':''}</td></tr>`;
   });h+='</tbody></table>';document.getElementById('tT').innerHTML=h;
 }
 function doSort(col){if(sortCol===col)sortDir=sortDir==='asc'?'desc':'asc';else{sortCol=col;sortDir='desc'};render()}
